@@ -565,14 +565,6 @@ class thermostat:
         set the cooling setpoint to setpoint in degrees C rounded to 1C
     """
 
-    ## from thermostats table:
-    ##mode INTEGER,
-    ##targetheat NUMERIC,
-    ##targetcool NUMERIC,
-    ##acutaltemp NUMERIC,
-    ##actualhumi NUMERIC,
-    ##error BOOLEAN,
-
     # these values are for internal use
     # they are retrieved from the thermostat on demand and so are not guaranteed to be up to date
     # they are meant to be used as a check periodically in case the Pi wants to update them, for instance
@@ -864,7 +856,6 @@ class thermostat:
                     cmdCheck = False
                     timeCheck = False
                 if (not cumError) and cmdCheck and timeCheck:
-                    ##mysql> describe thermostatschedule;
                     ##+--------------+---------+
                     ##| Field        | Type    |
                     ##+--------------+---------+
@@ -996,13 +987,6 @@ class thermostat:
             # 0x08 = Off Fan
             # 0x09 = Off All
             # 0x0a = Auto
-
-            # {2,98,51,70,111,15,0x6b,0}
-            # tempStr = (chr(2) + chr(98) + chr(self.address[0]) +
-            #  chr(self.address[1]) + chr(self.address[2]) +
-            #  chr(15) + chr(0x6B) + chr(mode))
-            # [response, localError] = StdCmd(plmSerial, tempStr, self.verbose)
-            # time.sleep(1.5)
 
             prefixStr = (
                 chr(0x02)
@@ -1231,8 +1215,6 @@ if __name__ == "__main__":
     insteonPlm.bytesize = serial.EIGHTBITS  # number of bits per bytes
     insteonPlm.parity = serial.PARITY_NONE  # set parity check: no parity
     insteonPlm.stopbits = serial.STOPBITS_ONE  # number of stop bits
-    # insteonPlm.timeout = None              #block read
-    # insteonPlm.timeout = 0                 #non-block read
     insteonPlm.timeout = 2  # timeout block read
     insteonPlm.xonxoff = False  # disable software flow control
     insteonPlm.rtscts = False  # disable hardware (RTS/CTS) flow control
@@ -1262,8 +1244,8 @@ if __name__ == "__main__":
 
     dimmerAddresses = []
     dimmerAddresses.append(
-        [0x33, 0x46, 0x6F]
-    )  # append as many addresses as you have dimmers
+        [0xFF, 0xFF, 0xFF]
+    )  # change to your actual device address and append as many as you have dimmers
     dimmers = []
     for address in dimmerAddresses:
         dimmers.append(dimmer(address))
@@ -1274,8 +1256,8 @@ if __name__ == "__main__":
 
     thermostatAddresses = []
     thermostatAddresses.append(
-        [0x32, 0xF9, 0x53]
-    )  # append as many addresses as you have thermostats
+        [0xFF, 0xFF, 0xFF]
+    )  # change to your actual device address and append as many as you have thermostats
     thermostats = []
     for address in thermostatAddresses:
         thermostats.append(thermostat(address))
@@ -1310,18 +1292,3 @@ if __name__ == "__main__":
         print " thermostat", iThermostat, "hour is  ", thermostat.hour
         print " thermostat", iThermostat, "minute is", thermostat.minute
         print " thermostat", iThermostat, "second is", thermostat.second
-        # now = datetime.datetime.now()
-        # thermostat.verbose = True
-        # thermostat.SetMode(insteonPlm, 4)
-        # thermostat.GetState(insteonPlm)
-        # print 'thermostat.mode = ', thermostat.mode
-        # thermostat.SetMode(insteonPlm, 10)
-        # thermostat.GetState(insteonPlm)
-        # print 'thermostat.mode = ', thermostat.mode
-        # for i_loop in range(10):
-        #     print "\n*** try thermostat.GetState(insteonPlm)"
-        #     thermostat.GetState(insteonPlm)
-        #     print "\n*** try thermostat.GetTime(insteonPlm)"
-        #     thermostat.GetTime(insteonPlm)
-        #     print "\n*** try thermostat.SetMode(insteonPlm, 10)"
-        #     thermostat.SetMode(insteonPlm, 10)
