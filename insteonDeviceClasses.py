@@ -20,46 +20,48 @@
     December 2014 - first version
     January 2015 - added extended command functions and thermostat class
     August 2016 - general cleanup and comment additions for first release
+    January 2020 - add get and set time data and method for thermostat class
  """
 
 import time, datetime
-#consider updating this to the form:
-#from time import sleep
-#from datetime.datetime import now
+
+# consider updating this to the form:
+# from time import sleep
+# from datetime.datetime import now
 
 __author__ = "David Boertjes"
 __license__ = "unlicense"
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 __maintainer__ = "David Boertjes"
 __email__ = "david.boertjes@gmail.com"
 __status__ = "Production"
+
 
 def errorReporting(address, errorText, localError, errorStatus, verbose):
     if localError:
         if (errorStatus == False) and verbose:
             print "ERROR: Readback length fail"
             print "   ", datetime.datetime.now()
-            print "    set address ", \
-                  hex(address[0])[2:] + "." + \
-                  hex(address[1])[2:] + "." + \
-                  hex(address[2])[2:] + " on " + errorText
+            print "    set address ", hex(address[0])[2:] + "." + hex(address[1])[
+                2:
+            ] + "." + hex(address[2])[2:] + " on " + errorText
         return True
     else:
         if (errorStatus == True) and verbose:
             print "INFO: Readback recovery"
             print "   ", datetime.datetime.now()
-            print "    set address ", \
-                  hex(address[0])[2:] + "." + \
-                  hex(address[1])[2:] + "." + \
-                  hex(address[2])[2:] + " on " + errorText
+            print "    set address ", hex(address[0])[2:] + "." + hex(address[1])[
+                2:
+            ] + "." + hex(address[2])[2:] + " on " + errorText
         return False
+
 
 def CalcCrcStr(dataStr):
     # calculates the Insteon extended command two byte CRC
     # dataStr should contain the cmd1 through data12
     #
     # details on this calculation and when these commands are used
-    # can be found in the following document: 
+    # can be found in the following document:
     # http://cache.insteon.com/developer/2441ZTHdev-112012-en.pdf
     crcVal = 0
     for iChar in range(len(dataStr)):
@@ -72,11 +74,12 @@ def CalcCrcStr(dataStr):
             fb = fb ^ 1 if (crcVal & 0x0008) else fb
             crcVal = (crcVal << 1) | fb
             byte = byte >> 1
-    crcBytes = [crcVal >> i &0xff for i in (8, 0)]
+    crcBytes = [crcVal >> i & 0xFF for i in (8, 0)]
     crcStr = chr(crcBytes[0]) + chr(crcBytes[1])
     return crcStr
 
-def ExtCrc(ser, cmdStr, verbose = False, extreadback = True):
+
+def ExtCrc(ser, cmdStr, verbose=False, extreadback=True):
     # sends an Insteon extended CRC command and gets the response
     # response string and error boolean returned in list
     # ser: serial port handle of the PLM
@@ -89,7 +92,7 @@ def ExtCrc(ser, cmdStr, verbose = False, extreadback = True):
     #   5th byte (destination address low byte)
     #   6th byte (flags):  0x1F --> first nibble = 0 for std 1 for ext
     #                               second nibble = 0bnnmm where nn = hops left, mm = max hops
-    #   INSTEON Extended message (20 bytes, excludes From Address): 
+    #   INSTEON Extended message (20 bytes, excludes From Address):
     #       7th byte:  Command 1
     #       8th byte:  Command 2
     #       9th byte:  Data 1
@@ -138,17 +141,17 @@ def ExtCrc(ser, cmdStr, verbose = False, extreadback = True):
             print "ERROR: ExtCrc read error - wrong number of characters"
             print ":".join("{:02x}".format(ord(c)) for c in tempStr)
             print ":".join("{:02x}".format(ord(c)) for c in cmdEcho)
-            print("ACK response (0x50): ")
+            print ("ACK response (0x50): ")
             print ":".join("{:02x}".format(ord(c)) for c in stdAck)
-            print("EXT response (0x51): ")
+            print ("EXT response (0x51): ")
             print ":".join("{:02x}".format(ord(c)) for c in response)
         return ["", True]
     # check to make sure responses line up with sent commands, i.e. no
     # out of order or unsolicited messages
-    ackErr = not((cmdEcho[-1] == chr(0x06)))
-    stdErr = not((stdAck[1] == chr(0x50)) and (stdAck[-2:] == tempStr[6:8]))
+    ackErr = not ((cmdEcho[-1] == chr(0x06)))
+    stdErr = not ((stdAck[1] == chr(0x50)) and (stdAck[-2:] == tempStr[6:8]))
     if extreadback:
-        extErr = not((response[1] == chr(0x51)))
+        extErr = not ((response[1] == chr(0x51)))
     else:
         extErr = False
     if ackErr or stdErr or extErr:
@@ -160,13 +163,14 @@ def ExtCrc(ser, cmdStr, verbose = False, extreadback = True):
     if verbose:
         print ":".join("{:02x}".format(ord(c)) for c in tempStr)
         print ":".join("{:02x}".format(ord(c)) for c in cmdEcho)
-        print("ACK response (0x50): ")
+        print ("ACK response (0x50): ")
         print ":".join("{:02x}".format(ord(c)) for c in stdAck)
-        print("EXT response (0x51): ")
+        print ("EXT response (0x51): ")
         print ":".join("{:02x}".format(ord(c)) for c in response)
     return [response, False]
 
-def ExtChecksum(ser, cmdStr, verbose = False):
+
+def ExtChecksum(ser, cmdStr, verbose=False, extreadback=True):
     # sends an Insteon extended CS command and gets the response
     # response string and error boolean returned in list
     # ser: serial port handle of the PLM
@@ -179,7 +183,7 @@ def ExtChecksum(ser, cmdStr, verbose = False):
     #   5th byte (destination address low byte)
     #   6th byte (flags):  0x1F --> first nibble = 0 for std 1 for ext
     #                               second nibble = 0bnnmm where nn = hops left, mm = max hops
-    #   INSTEON Extended message (20 bytes, excludes From Address): 
+    #   INSTEON Extended message (20 bytes, excludes From Address):
     #       7th byte:  Command 1
     #       8th byte:  Command 2
     #       9th byte:  Data 1
@@ -210,26 +214,36 @@ def ExtChecksum(ser, cmdStr, verbose = False):
     # take the last byte of the sum, bitwise complement, then add 1 (and take last byte)
     # details can be found in the following document:
     # http://cache.insteon.com/developer/i2CSdev-022012-en.pdf
-    checksum = chr((((sum(bytearray(cmdStr[-15:]))%256) ^ 0xff) + 0x01)%256)
+    checksum = chr((((sum(bytearray(cmdStr[-15:])) % 256) ^ 0xFF) + 0x01) % 256)
     tempStr = cmdStr + checksum
     ser.write(tempStr)
     try:
+        if extreadback:
+            len_response = 25
+        else:
+            len_response = 0
         cmdEcho = ser.read(23)
         stdAck = ser.read(11)
-        response = ser.read(25)
+        response = ser.read(len_response)
     except:
         if verbose:
             print "ERROR: ExtChecksum read error"
         return ["", True]
-    if (len(cmdEcho) <> 23) or (len(stdAck) <> 11) or (len(response) <> 25):
+    if (len(cmdEcho) <> 23) or (len(stdAck) <> 11) or (len(response) <> len_response):
         if verbose:
             print "ERROR: ExtChecksum read error - wrong number of characters"
+            print " len(cmdEcho)  = ", len(cmdEcho), " expecting 23"
+            print " len(stdAck)   = ", len(stdAck), " expecting 11"
+            print " len(response) = ", len(response), " expecting ", len_response
         return ["", True]
     # check to make sure responses line up with sent commands, i.e. no
     # out of order or unsolicited messages
-    ackErr = not((cmdEcho[-1] == chr(0x06)))
-    stdErr = not((stdAck[1] == chr(0x50)) and (stdAck[-2:] == tempStr[6:8]))
-    extErr = not((response[1] == chr(0x51)))
+    ackErr = not ((cmdEcho[-1] == chr(0x06)))
+    stdErr = not ((stdAck[1] == chr(0x50)) and (stdAck[-2:] == tempStr[6:8]))
+    if extreadback:
+        extErr = not ((response[1] == chr(0x51)))
+    else:
+        extErr = False
     if ackErr or stdErr or extErr:
         if verbose:
             print "ERROR: ExtChecksum a packet received out of order"
@@ -239,13 +253,14 @@ def ExtChecksum(ser, cmdStr, verbose = False):
     if verbose:
         print ":".join("{:02x}".format(ord(c)) for c in tempStr)
         print ":".join("{:02x}".format(ord(c)) for c in cmdEcho)
-        print("ACK response (0x50): ")
+        print ("ACK response (0x50): ")
         print ":".join("{:02x}".format(ord(c)) for c in stdAck)
-        print("EXT response (0x51): ")
+        print ("EXT response (0x51): ")
         print ":".join("{:02x}".format(ord(c)) for c in response)
     return [response, False]
 
-def StdCmd(ser, cmdStr, verbose = False, nResponse = 1):
+
+def StdCmd(ser, cmdStr, verbose=False, nResponse=1):
     # sends an Insteon standard command and gets the response
     # response string and error boolean returned in list
     # ser: serial port handle of the PLM
@@ -280,14 +295,23 @@ def StdCmd(ser, cmdStr, verbose = False, nResponse = 1):
     if (len(cmdEcho) <> 9) or (len(response) <> 11 * nResponse):
         if verbose:
             print "ERROR: StdCmd read error - wrong number of characters"
+            print "len(cmdEcho)  = " + str(len(cmdEcho)) + " expecting 9"
+            print "len(response) = " + str(len(response)) + " expecting " + str(
+                11 * nResponse
+            )
+            print "cmdStr   " + ":".join("{:02x}".format(ord(c)) for c in cmdStr)
+            print "cmdEcho  " + ":".join("{:02x}".format(ord(c)) for c in cmdEcho)
+            print "response " + ":".join(
+                "{:02x}".format(ord(c)) for c in response
+            ) + "\n"
         return ["", True]
     # check to make sure responses line up with sent commands, i.e. no
     # out of order or unsolicited messages
-    ackErr = not((cmdEcho[-1] == chr(0x06)))
+    ackErr = not ((cmdEcho[-1] == chr(0x06)))
     stdErr = False
     for iResponse in range(nResponse):
         iChar = 1 + 11 * iResponse
-        stdErr = not((response[iChar] == chr(0x50)) and (not(stdErr)))
+        stdErr = not ((response[iChar] == chr(0x50)) and (not (stdErr)))
     if ackErr or stdErr:
         if verbose:
             print "ERROR: StdCmd a packet received out of order"
@@ -297,9 +321,10 @@ def StdCmd(ser, cmdStr, verbose = False, nResponse = 1):
     if verbose:
         print ":".join("{:02x}".format(ord(c)) for c in cmdStr)
         print ":".join("{:02x}".format(ord(c)) for c in cmdEcho)
-        print("STD response (0x50): ")
+        print ("STD response (0x50): ")
         print ":".join("{:02x}".format(ord(c)) for c in response)
     return [response, False]
+
 
 class dimmer:
     """
@@ -342,7 +367,7 @@ class dimmer:
         gets the on and level states and compares to set states to determine
         whether there has been a manual override
     """
-    
+
     lastSetOn = False
     lastSetLevel = 0
     lastGetOn = False
@@ -351,41 +376,50 @@ class dimmer:
     errorStatus = False
     verbose = False
 
-    def __init__(self,address = [0, 0, 0]):
-        self.address=address
+    def __init__(self, address=[0, 0, 0]):
+        self.address = address
         if len(self.address) <> 3:
             print "ERROR: Insteon address length"
             self.address = [0, 0, 0]
         elif max(self.address) > 255 or min(self.address) < 0:
             print "ERROR: Insteon address out of range"
             self.address = [0, 0, 0]
-        
+
     def SetOn(self, plmSerial, level=100):
         if self.address == [0, 0, 0]:
             print "WARNING: No action taken on null address device"
         else:
             if self.verbose:
-                print "    set address ", \
-                      hex(self.address[0])[2:] + "." + \
-                      hex(self.address[1])[2:] + "." + \
-                      hex(self.address[2])[2:] + \
-                      " ON, level ", level
+                print "    set address ", hex(self.address[0])[2:] + "." + hex(
+                    self.address[1]
+                )[2:] + "." + hex(self.address[2])[2:] + " ON, level ", level
             plmSerial.flushInput()
             plmSerial.flushOutput()
 
             # build the data string to send to the PLM in the following format
-            # {0x02,0x62,da0,da1,da2,0x0F,0x11,hex_level} 
+            # {0x02,0x62,da0,da1,da2,0x0F,0x11,hex_level}
             # where da is the desination address and hex_level = [0x00..0xFF]
             # we start with a level in percentage and convert it to this range
-            tempStr = (chr(0x02) + chr(0x62) + chr(self.address[0]) +
-              chr(self.address[1]) + chr(self.address[2]) +
-              chr(15) + chr(17) + chr(int(round(level*2.55))))
+            tempStr = (
+                chr(0x02)
+                + chr(0x62)
+                + chr(self.address[0])
+                + chr(self.address[1])
+                + chr(self.address[2])
+                + chr(15)
+                + chr(17)
+                + chr(int(round(level * 2.55)))
+            )
             [response, localError] = StdCmd(plmSerial, tempStr, self.verbose)
 
             # better error checking
-            self.errorStatus = errorReporting(self.address,\
-                               "Set ON, level = " + str(level), localError, \
-                               self.errorStatus, True)
+            self.errorStatus = errorReporting(
+                self.address,
+                "Set ON, level = " + str(level),
+                localError,
+                self.errorStatus,
+                self.verbose,
+            )
             if not localError:
                 self.lastSetOn = True
                 self.lastSetLevel = level
@@ -396,24 +430,29 @@ class dimmer:
             print "WARNING: No action taken on null address device"
         else:
             if self.verbose:
-                print "    set address ", \
-                      hex(self.address[0])[2:] + "." + \
-                      hex(self.address[1])[2:] + "." + \
-                      hex(self.address[2])[2:] +  \
-                      " OFF"
+                print "    set address ", hex(self.address[0])[2:] + "." + hex(
+                    self.address[1]
+                )[2:] + "." + hex(self.address[2])[2:] + " OFF"
             plmSerial.flushInput()
             plmSerial.flushOutput()
 
             # {2,98,51,70,111,15,19,0}
-            tempStr = (chr(2) + chr(98) + chr(self.address[0]) +
-              chr(self.address[1]) + chr(self.address[2]) +
-              chr(15) + chr(19) + chr(0))
+            tempStr = (
+                chr(2)
+                + chr(98)
+                + chr(self.address[0])
+                + chr(self.address[1])
+                + chr(self.address[2])
+                + chr(15)
+                + chr(19)
+                + chr(0)
+            )
             [response, localError] = StdCmd(plmSerial, tempStr, self.verbose)
 
             # better error checking
-            self.errorStatus = errorReporting(self.address,\
-                               "Set OFF", localError, \
-                               self.errorStatus, True)
+            self.errorStatus = errorReporting(
+                self.address, "Set OFF", localError, self.errorStatus, self.verbose
+            )
             if not localError:
                 self.lastSetOn = False
                 self.lastSetLevel = 0
@@ -424,23 +463,29 @@ class dimmer:
             print "WARNING: No action taken on null address device"
         else:
             if self.verbose:
-                print "    get address ", \
-                      hex(self.address[0])[2:] + "." + \
-                      hex(self.address[1])[2:] + "." + \
-                      hex(self.address[2])[2:]
+                print "    get address ", hex(self.address[0])[2:] + "." + hex(
+                    self.address[1]
+                )[2:] + "." + hex(self.address[2])[2:]
 
             plmSerial.flushInput()
             plmSerial.flushOutput()
 
             # {2,98,51,70,111,15,25,0}
-            tempStr = (chr(2) + chr(98) + chr(self.address[0]) +
-              chr(self.address[1]) + chr(self.address[2]) +
-              chr(15) + chr(25) + chr(0))
+            tempStr = (
+                chr(2)
+                + chr(98)
+                + chr(self.address[0])
+                + chr(self.address[1])
+                + chr(self.address[2])
+                + chr(15)
+                + chr(25)
+                + chr(0)
+            )
             [response, localError] = StdCmd(plmSerial, tempStr, self.verbose)
 
-            self.errorStatus = errorReporting(self.address,\
-                               "GetState", localError, \
-                               self.errorStatus, True)
+            self.errorStatus = errorReporting(
+                self.address, "GetState", localError, self.errorStatus, self.verbose
+            )
             if not localError:
                 x = ord(response[-1:])
                 if x == 0:
@@ -448,11 +493,14 @@ class dimmer:
                 else:
                     self.lastGetOn = True
 
-                self.lastGetLevel = int(round(x/2.55))
+                self.lastGetLevel = int(round(x / 2.55))
                 # test to see if manual override has been enacted with 2% slop
-                if self.lastGetOn <> self.lastSetOn or \
-                   abs(self.lastGetLevel - self.lastSetLevel) > 2:
+                if (
+                    self.lastGetOn <> self.lastSetOn
+                    or abs(self.lastGetLevel - self.lastSetLevel) > 2
+                ):
                     self.manualOverride = True
+
 
 class thermostat:
     """
@@ -516,6 +564,7 @@ class thermostat:
     SetCoolSetpoint(PLM, setpoint) - don't need
         set the cooling setpoint to setpoint in degrees C rounded to 1C
     """
+
     ## from thermostats table:
     ##mode INTEGER,
     ##targetheat NUMERIC,
@@ -524,6 +573,32 @@ class thermostat:
     ##actualhumi NUMERIC,
     ##error BOOLEAN,
 
+    # these values are for internal use
+    # they are retrieved from the thermostat on demand and so are not guaranteed to be up to date
+    # they are meant to be used as a check periodically in case the Pi wants to update them, for instance
+    # after a power outage, etc.  getTimeResponse is meant to contain all of the data from the normal
+    # query, such that when setting a new time, one does not need to calculate the other settings
+    # and can just apply them as is
+    day = 0
+    hour = 0
+    minute = 0
+    second = 0
+    getTimeResponse = (
+        chr(0xFF)
+        + chr(0x00)
+        + chr(0x00)
+        + chr(0x00)
+        + chr(0x00)
+        + chr(0x00)
+        + chr(0x00)
+        + chr(0x00)
+        + chr(0x00)
+        + chr(0x00)
+        + chr(0x00)
+        + chr(0x00)
+    )
+
+    # external values
     mode = 0x08
     modeText = "unknown"
     targetHeat = 0
@@ -534,8 +609,8 @@ class thermostat:
     errorStatus = False
     verbose = False
 
-    def __init__(self,address = [0, 0, 0]):
-        self.address=address
+    def __init__(self, address=[0, 0, 0]):
+        self.address = address
         if len(self.address) <> 3:
             print "ERROR: Insteon address length"
             self.address = [0, 0, 0]
@@ -548,17 +623,21 @@ class thermostat:
             print "WARNING: No action taken on null address device"
         else:
             if self.verbose:
-                print "    get address ", \
-                      hex(self.address[0])[2:] + "." + \
-                      hex(self.address[1])[2:] + "." + \
-                      hex(self.address[2])[2:] + \
-                      " GetState"
+                print "    get address ", hex(self.address[0])[2:] + "." + hex(
+                    self.address[1]
+                )[2:] + "." + hex(self.address[2])[2:] + " GetState"
 
             plmSerial.flushInput()
             plmSerial.flushOutput()
             cumError = False
-            preStr = chr(0x02) + chr(0x62) + chr(self.address[0]) + \
-                     chr(self.address[1]) + chr(self.address[2]) + chr(0x0F)
+            preStr = (
+                chr(0x02)
+                + chr(0x62)
+                + chr(self.address[0])
+                + chr(self.address[1])
+                + chr(self.address[2])
+                + chr(0x0F)
+            )
 
             # get thermostat mode
             cmdStr = chr(0x6B) + chr(0x02)
@@ -569,7 +648,7 @@ class thermostat:
                 responseMode = ord(response[-1])
             except:
                 responseMode = 9
-            if not localError and (responseMode < 8) and (responseMode >=0):
+            if not localError and (responseMode < 8) and (responseMode >= 0):
                 # 0x00 = Off
                 # 0x01 = Heat
                 # 0x02 = Cool
@@ -579,8 +658,17 @@ class thermostat:
                 # 0x06 = Program Heat
                 # 0x07 = Program Cool
                 # 0x08 = unknown - not returned from thermostat
-                modeTextArray = ["Off", "Heat", "Cool", "Auto", "Fan", "Program", \
-                            "Program Heat", "Program Cool" ,"Unknown"]
+                modeTextArray = [
+                    "Off",
+                    "Heat",
+                    "Cool",
+                    "Auto",
+                    "Fan",
+                    "Program",
+                    "Program Heat",
+                    "Program Cool",
+                    "Unknown",
+                ]
                 self.mode = responseMode
                 self.modeText = modeTextArray[self.mode]
                 if self.verbose:
@@ -590,7 +678,7 @@ class thermostat:
                 cumError = True
                 plmSerial.flushInput()
                 plmSerial.flushOutput()
-                
+
             # get zone information, zone 0 setpoint
             cmdStr = chr(0x6A) + chr(0b00100000)
             tempStr = preStr + cmdStr
@@ -599,8 +687,8 @@ class thermostat:
             responseHeat = response[:11]
             responseCool = response[11:]
             if not localError:
-                self.targetHeat = int(float(ord(responseHeat[-1]))/2.0+0.5)
-                self.targetCool = int(float(ord(responseCool[-1]))/2.0+0.5)
+                self.targetHeat = int(float(ord(responseHeat[-1])) / 2.0 + 0.5)
+                self.targetCool = int(float(ord(responseCool[-1])) / 2.0 + 0.5)
                 if self.verbose:
                     print "heat setpoint:", self.targetHeat
                     print "cool setpoint:", self.targetCool
@@ -625,18 +713,28 @@ class thermostat:
 
             # get dataset 1 extended CS command
             preExt = preStr[:-1] + chr(0x1F)
-            extCmdData = chr(0x2E) + chr(0x00) + \
-                         chr(0x00) + chr(0x00) + chr(0x00) + chr(0x00) + \
-                         chr(0x00) + chr(0x00) + chr(0x00) + chr(0x00) + \
-                         chr(0x00) + chr(0x00) + chr(0x00) + chr(0x00) + \
-                         chr(0x00)
+            extCmdData = (
+                chr(0x2E)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+            )
             tempStr = preExt + extCmdData
-            [response, localError] = ExtChecksum(plmSerial, tempStr, \
-                                                 self.verbose)
+            [response, localError] = ExtChecksum(plmSerial, tempStr, self.verbose)
             cumError = localError or cumError
             if not localError:
-                self.actualTemp = (ord(response[13])*256 + \
-                                   ord(response[14]))/10.0
+                self.actualTemp = (ord(response[13]) * 256 + ord(response[14])) / 10.0
                 if self.verbose:
                     print "ambient temperature:", self.actualTemp
             else:
@@ -644,98 +742,124 @@ class thermostat:
                 plmSerial.flushInput()
                 plmSerial.flushOutput()
 
-            # end of work, now set the overall error state    
-            self.errorStatus = errorReporting(self.address,\
-                               "GetStatus", cumError, \
-                               self.errorStatus, True)
+            # end of work, now set the overall error state
+            self.errorStatus = errorReporting(
+                self.address, "GetState", cumError, self.errorStatus, self.verbose
+            )
 
     def UpSetPoint(self, plmSerial):
         if self.address == [0, 0, 0]:
             print "WARNING: No action taken on null address device"
         else:
             if self.verbose:
-                print "    set address ", \
-                      hex(self.address[0])[2:] + "." + \
-                      hex(self.address[1])[2:] + "." + \
-                      hex(self.address[2])[2:] +  \
-                      " UpSetPoint"
+                print "    set address ", hex(self.address[0])[2:] + "." + hex(
+                    self.address[1]
+                )[2:] + "." + hex(self.address[2])[2:] + " UpSetPoint"
             plmSerial.flushInput()
             plmSerial.flushOutput()
 
             # {2,98,51,70,111,15,0x15,0}
-            tempStr = (chr(2) + chr(98) + chr(self.address[0]) +
-              chr(self.address[1]) + chr(self.address[2]) +
-              chr(15) + chr(0x15) + chr(0))
+            tempStr = (
+                chr(2)
+                + chr(98)
+                + chr(self.address[0])
+                + chr(self.address[1])
+                + chr(self.address[2])
+                + chr(15)
+                + chr(0x15)
+                + chr(0)
+            )
             [response, localError] = StdCmd(plmSerial, tempStr, self.verbose)
             time.sleep(1.5)
 
             # better error checking
-            self.errorStatus = errorReporting(self.address,\
-                               "UpSetPoint", localError, \
-                               self.errorStatus, True)
+            self.errorStatus = errorReporting(
+                self.address, "UpSetPoint", localError, self.errorStatus, self.verbose
+            )
 
     def DownSetPoint(self, plmSerial):
         if self.address == [0, 0, 0]:
             print "WARNING: No action taken on null address device"
         else:
             if self.verbose:
-                print "    set address ", \
-                      hex(self.address[0])[2:] + "." + \
-                      hex(self.address[1])[2:] + "." + \
-                      hex(self.address[2])[2:] +  \
-                      " DownSetPoint"
+                print "    set address ", hex(self.address[0])[2:] + "." + hex(
+                    self.address[1]
+                )[2:] + "." + hex(self.address[2])[2:] + " DownSetPoint"
             plmSerial.flushInput()
             plmSerial.flushOutput()
 
             # {2,98,51,70,111,15,0x16,0}
-            tempStr = (chr(2) + chr(98) + chr(self.address[0]) +
-              chr(self.address[1]) + chr(self.address[2]) +
-              chr(15) + chr(0x16) + chr(0))
+            tempStr = (
+                chr(2)
+                + chr(98)
+                + chr(self.address[0])
+                + chr(self.address[1])
+                + chr(self.address[2])
+                + chr(15)
+                + chr(0x16)
+                + chr(0)
+            )
             [response, localError] = StdCmd(plmSerial, tempStr, self.verbose)
             time.sleep(1.5)
 
             # better error checking
-            self.errorStatus = errorReporting(self.address,\
-                               "DownSetPoint", localError, \
-                               self.errorStatus, True)
+            self.errorStatus = errorReporting(
+                self.address, "DownSetPoint", localError, self.errorStatus, self.verbose
+            )
 
-    def GetSchedule(self, plmSerial, deviceId = 8, zone = 0):
+    def GetSchedule(self, plmSerial, deviceId=8, zone=0):
         if self.address == [0, 0, 0]:
             print "WARNING: No action taken on null address device"
         else:
             if self.verbose:
-                print "    get address ", \
-                      hex(self.address[0])[2:] + "." + \
-                      hex(self.address[1])[2:] + "." + \
-                      hex(self.address[2])[2:] + \
-                      " GetSchedule"
+                print "    get address ", hex(self.address[0])[2:] + "." + hex(
+                    self.address[1]
+                )[2:] + "." + hex(self.address[2])[2:] + " GetSchedule"
 
             plmSerial.flushInput()
             plmSerial.flushOutput()
             scheduleMode = 7
             cumError = False
 
-            prefixStr = chr(0x02) + chr(0x62) + chr(self.address[0]) + \
-                     chr(self.address[1]) + chr(self.address[2]) + chr(0x1F)
-            data1Thru12 = chr(0x00) + chr(0x00) + chr(0x00) + chr(0x00) + \
-                          chr(0x00) + chr(0x00) + chr(0x00) + chr(0x00) + \
-                          chr(0x00) + chr(0x00) + chr(0x00) + chr(0x00)
-            cmd1 = chr(0x2e)
+            prefixStr = (
+                chr(0x02)
+                + chr(0x62)
+                + chr(self.address[0])
+                + chr(self.address[1])
+                + chr(self.address[2])
+                + chr(0x1F)
+            )
+            data1Thru12 = (
+                chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+            )
+            cmd1 = chr(0x2E)
             schedTable = []
             tfmt = "{0:d}:{1:0>2d}:00"
-            
-            for iDay in range (7):
-                cmd2 = chr(0x0a + iDay * 2)
+
+            for iDay in range(7):
+                cmd2 = chr(0x0A + iDay * 2)
                 tempStr = prefixStr + cmd1 + cmd2 + data1Thru12
-                [response, localError] = ExtCrc(plmSerial, tempStr, \
-                                                self.verbose)
+                [response, localError] = ExtCrc(plmSerial, tempStr, self.verbose)
                 cumError = localError or cumError
                 if not localError:
-                    cmdCheck = (ord(response[10]) == ord(cmd2) + 1)
-                    timeCheck = (ord(response[11]) < 96) and \
-                                (ord(response[14]) < 96) and \
-                                (ord(response[17]) < 96) and \
-                                (ord(response[20]) < 96)
+                    cmdCheck = ord(response[10]) == ord(cmd2) + 1
+                    timeCheck = (
+                        (ord(response[11]) < 96)
+                        and (ord(response[14]) < 96)
+                        and (ord(response[17]) < 96)
+                        and (ord(response[20]) < 96)
+                    )
                 else:
                     cmdCheck = False
                     timeCheck = False
@@ -770,7 +894,7 @@ class thermostat:
                     schedLine.append(str(scheduleMode))
                     schedLine.append(str(iDay))
                     for iPeriod in range(4):
-                        t = ord(response[11 + iPeriod * 3])/4.0
+                        t = ord(response[11 + iPeriod * 3]) / 4.0
                         h = int(t)
                         m = int((t - h) * 60)
                         schedLine.append(tfmt.format(h, m))
@@ -782,9 +906,9 @@ class thermostat:
                     cumError = True
 
             # end of work, now save the table and set the overall error state
-            self.errorStatus = errorReporting(self.address,\
-                               "GetSchedule", cumError, \
-                               self.errorStatus, True)
+            self.errorStatus = errorReporting(
+                self.address, "GetSchedule", cumError, self.errorStatus, self.verbose
+            )
             if not cumError:
                 self.schedule = schedTable
 
@@ -792,48 +916,51 @@ class thermostat:
         if self.address == [0, 0, 0]:
             print "WARNING: No action taken on null address device"
         elif len(schedTable) <> 7:
-            print "WARNING: schedule table not 7 days long ",len(schedTable)
+            print "WARNING: schedule table not 7 days long ", len(schedTable)
         else:
             if self.verbose:
-                print "    get address ", \
-                      hex(self.address[0])[2:] + "." + \
-                      hex(self.address[1])[2:] + "." + \
-                      hex(self.address[2])[2:] + \
-                      " SetSchedule"
+                print "    get address ", hex(self.address[0])[2:] + "." + hex(
+                    self.address[1]
+                )[2:] + "." + hex(self.address[2])[2:] + " SetSchedule"
 
             plmSerial.flushInput()
             plmSerial.flushOutput()
             cumError = False
 
-            prefixStr = chr(0x02) + chr(0x62) + chr(self.address[0]) + \
-                     chr(self.address[1]) + chr(self.address[2]) + chr(0x1F)
-            cmd1 = chr(0x2e)
-            
+            prefixStr = (
+                chr(0x02)
+                + chr(0x62)
+                + chr(self.address[0])
+                + chr(self.address[1])
+                + chr(self.address[2])
+                + chr(0x1F)
+            )
+            cmd1 = chr(0x2E)
+
             # iDay = 0
             for schedRow in schedTable:
                 # iDay += 1
                 # print "shedule row =", iDay
                 cmd2 = chr(0x03 + int(schedRow[4]))
-                
+
                 data1Thru12 = ""
                 for iPeriod in range(4):
                     iCol = iPeriod * 3 + 5
                     [h, m] = [int(a) for a in schedRow[iCol].split(":")[0:2]]
-                    timebyte = chr(h*4 + m/15)
+                    timebyte = chr(h * 4 + m / 15)
                     coolbyte = chr(int(schedRow[iCol + 1]))
                     heatbyte = chr(int(schedRow[iCol + 2]))
                     data1Thru12 = data1Thru12 + timebyte + coolbyte + heatbyte
-                    
+
                 tempStr = prefixStr + cmd1 + cmd2 + data1Thru12
-                [response, localError] = ExtCrc(plmSerial, tempStr, \
-                                                self.verbose, False)
+                [response, localError] = ExtCrc(plmSerial, tempStr, self.verbose, False)
                 cumError = localError or cumError
                 time.sleep(4)
 
             # end of work, now save the table and set the overall error state
-            self.errorStatus = errorReporting(self.address,\
-                               "SetSchedule", cumError, \
-                               self.errorStatus, True)
+            self.errorStatus = errorReporting(
+                self.address, "SetSchedule", cumError, self.errorStatus, self.verbose
+            )
             if not cumError:
                 self.schedule = schedTable
 
@@ -844,14 +971,12 @@ class thermostat:
             print "WARNING: mode setting for thermostat out of range:", mode
         else:
             if self.verbose:
-                print "    set address ", \
-                      hex(self.address[0])[2:] + "." + \
-                      hex(self.address[1])[2:] + "." + \
-                      hex(self.address[2])[2:] +  \
-                      " SetMode"
+                print "    set address ", hex(self.address[0])[2:] + "." + hex(
+                    self.address[1]
+                )[2:] + "." + hex(self.address[2])[2:] + " SetMode"
             plmSerial.flushInput()
             plmSerial.flushOutput()
-            
+
             # readback
             # 0x00 = Off
             # 0x01 = Heat
@@ -873,55 +998,246 @@ class thermostat:
             # 0x0a = Auto
 
             # {2,98,51,70,111,15,0x6b,0}
-            #tempStr = (chr(2) + chr(98) + chr(self.address[0]) +
+            # tempStr = (chr(2) + chr(98) + chr(self.address[0]) +
             #  chr(self.address[1]) + chr(self.address[2]) +
             #  chr(15) + chr(0x6B) + chr(mode))
-            #[response, localError] = StdCmd(plmSerial, tempStr, self.verbose)
-            #time.sleep(1.5)
+            # [response, localError] = StdCmd(plmSerial, tempStr, self.verbose)
+            # time.sleep(1.5)
 
-            prefixStr = chr(0x02) + chr(0x62) + chr(self.address[0]) + \
-                     chr(self.address[1]) + chr(self.address[2]) + chr(0x1F)
+            prefixStr = (
+                chr(0x02)
+                + chr(0x62)
+                + chr(self.address[0])
+                + chr(self.address[1])
+                + chr(self.address[2])
+                + chr(0x1F)
+            )
             cmd1 = chr(0x6B)
             cmd2 = chr(int(mode))
-            data1Thru13 = chr(0x00) + chr(0x00) + chr(0x00) + chr(0x00) + \
-                          chr(0x00) + chr(0x00) + chr(0x00) + chr(0x00) + \
-                          chr(0x00) + chr(0x00) + chr(0x00) + chr(0x00) + \
-                          chr(0x00)
+            data1Thru13 = (
+                chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+            )
             tempStr = prefixStr + cmd1 + cmd2 + data1Thru13
-            [response, localError] = ExtChecksum(plmSerial, tempStr, \
-                                     self.verbose)
+            [response, localError] = ExtChecksum(
+                plmSerial, tempStr, self.verbose, extreadback=False
+            )
             time.sleep(1.5)
 
             # better error checking
-            self.errorStatus = errorReporting(self.address,\
-                               "SetMode", localError, \
-                               self.errorStatus, True)
+            self.errorStatus = errorReporting(
+                self.address, "SetMode", localError, self.errorStatus, self.verbose
+            )
 
-if __name__ == '__main__':
-    """
-    Example of how to use the device classes and their functions
-    """
+    def GetTime(self, plmSerial):
+        if self.address == [0, 0, 0]:
+            print "WARNING: No action taken on null address device"
+        else:
+            if self.verbose:
+                print "    get address ", hex(self.address[0])[2:] + "." + hex(
+                    self.address[1]
+                )[2:] + "." + hex(self.address[2])[2:] + " GetTime"
+
+            plmSerial.flushInput()
+            plmSerial.flushOutput()
+            cumError = False
+
+            prefixStr = (
+                chr(0x02)
+                + chr(0x62)
+                + chr(self.address[0])
+                + chr(self.address[1])
+                + chr(self.address[2])
+                + chr(0x1F)
+            )
+            data1Thru12 = (
+                chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+            )
+            cmd1 = chr(0x2E)
+            cmd2 = chr(0x02)
+            tempStr = prefixStr + cmd1 + cmd2 + data1Thru12
+            [response, localError] = ExtCrc(plmSerial, tempStr, self.verbose)
+            cumError = localError or cumError
+            if not localError:
+                cmdCheck = (
+                    (ord(response[10]) == ord(cmd2))
+                    and (ord(response[11]) == ord(data1Thru12[0]) + 1)
+                    and len(response) == 25
+                )
+            else:
+                cmdCheck = False
+            if (not cumError) and cmdCheck:
+                # normal work
+                data1Thru12 = response[11:23]
+                self.getTimeResponse = data1Thru12
+                self.day = ord(data1Thru12[1])
+                self.hour = ord(data1Thru12[2])
+                self.minute = ord(data1Thru12[3])
+                self.second = ord(data1Thru12[4])
+            else:
+                self.getTimeResponse = (
+                    chr(0xFF)
+                    + chr(0x00)
+                    + chr(0x00)
+                    + chr(0x00)
+                    + chr(0x00)
+                    + chr(0x00)
+                    + chr(0x00)
+                    + chr(0x00)
+                    + chr(0x00)
+                    + chr(0x00)
+                    + chr(0x00)
+                    + chr(0x00)
+                )
+
+            self.errorStatus = errorReporting(
+                self.address, "GetTime", cumError, self.errorStatus, self.verbose
+            )
+
+    def SetTime(self, plmSerial, day, hour, minute, second):
+        if self.address == [0, 0, 0]:
+            print "WARNING: No action taken on null address device"
+        else:
+            if self.verbose:
+                print "    get address ", hex(self.address[0])[2:] + "." + hex(
+                    self.address[1]
+                )[2:] + "." + hex(self.address[2])[2:] + " SetTime"
+
+            plmSerial.flushInput()
+            plmSerial.flushOutput()
+            cumError = False
+
+            prefixStr = (
+                chr(0x02)
+                + chr(0x62)
+                + chr(self.address[0])
+                + chr(self.address[1])
+                + chr(self.address[2])
+                + chr(0x1F)
+            )
+            data1Thru12 = (
+                chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+                + chr(0x00)
+            )
+            cmd1 = chr(0x2E)
+            cmd2 = chr(0x02)
+            tempStr = prefixStr + cmd1 + cmd2 + data1Thru12
+            [response, localError] = ExtCrc(plmSerial, tempStr, self.verbose)
+            time.sleep(1.5)
+            cumError = localError or cumError
+            if not localError:
+                cmdCheck = (
+                    (ord(response[10]) == ord(cmd2))
+                    and (ord(response[11]) == ord(data1Thru12[0]) + 1)
+                    and len(response) == 25
+                )
+            else:
+                cmdCheck = True
+
+            cumError = (not cmdCheck) or cumError
+
+            if not cumError:
+                # set the values to the previous response
+                data1Thru12 = response[11:23]
+                # replace the day and time data
+                data1Thru12 = (
+                    chr(0x02)
+                    + chr(day)
+                    + chr(hour)
+                    + chr(minute)
+                    + chr(second)
+                    + response[16:23]
+                )
+                # write these values to the thermostat
+                tempStr = prefixStr + cmd1 + cmd2 + data1Thru12
+                [response, localError] = ExtCrc(
+                    plmSerial, tempStr, self.verbose, extreadback=False
+                )
+                time.sleep(1.5)
+            cumError = localError or cumError
+
+            if not cumError:
+                self.day = ord(data1Thru12[1])
+                self.hour = ord(data1Thru12[2])
+                self.minute = ord(data1Thru12[3])
+                self.second = ord(data1Thru12[4])
+                self.getTimeResponse = data1Thru12
+            else:
+                self.getTimeResponse = (
+                    chr(0xFF)
+                    + chr(0x00)
+                    + chr(0x00)
+                    + chr(0x00)
+                    + chr(0x00)
+                    + chr(0x00)
+                    + chr(0x00)
+                    + chr(0x00)
+                    + chr(0x00)
+                    + chr(0x00)
+                    + chr(0x00)
+                    + chr(0x00)
+                )
+
+            self.errorStatus = errorReporting(
+                self.address, "SetTime", cumError, self.errorStatus, self.verbose
+            )
+
+
+if __name__ == "__main__":
     import serial
+
     machine = "unix"
-    #machine = "windows"
+    # machine = "windows"
     # PLM serial port connection settings and open
     #
     if machine == "unix":
-        SERIALPORT = "/dev/ttyUSB0"         #put your device path here
+        SERIALPORT = "/dev/ttyUSB0"  # put your device path here
     elif machine == "windows":
-        SERIALPORT = "COM3"                 #windows version
-    BAUDRATE = 19200                        #standard for Insteon PLMs
+        SERIALPORT = "COM3"  # windows version
+    BAUDRATE = 19200  # standard for Insteon PLMs
     insteonPlm = serial.Serial(SERIALPORT, BAUDRATE)
-    insteonPlm.bytesize = serial.EIGHTBITS  #number of bits per bytes
-    insteonPlm.parity = serial.PARITY_NONE  #set parity check: no parity
-    insteonPlm.stopbits = serial.STOPBITS_ONE   #number of stop bits
-    #insteonPlm.timeout = None              #block read
-    #insteonPlm.timeout = 0                 #non-block read
-    insteonPlm.timeout = 2                  #timeout block read
-    insteonPlm.xonxoff = False              #disable software flow control
-    insteonPlm.rtscts = False               #disable hardware (RTS/CTS) flow control
-    insteonPlm.dsrdtr = False               #disable hardware (DSR/DTR) flow control
-    insteonPlm.writeTimeout = 0             #timeout for write
+    insteonPlm.bytesize = serial.EIGHTBITS  # number of bits per bytes
+    insteonPlm.parity = serial.PARITY_NONE  # set parity check: no parity
+    insteonPlm.stopbits = serial.STOPBITS_ONE  # number of stop bits
+    # insteonPlm.timeout = None              #block read
+    # insteonPlm.timeout = 0                 #non-block read
+    insteonPlm.timeout = 2  # timeout block read
+    insteonPlm.xonxoff = False  # disable software flow control
+    insteonPlm.rtscts = False  # disable hardware (RTS/CTS) flow control
+    insteonPlm.dsrdtr = False  # disable hardware (DSR/DTR) flow control
+    insteonPlm.writeTimeout = 0  # timeout for write
 
     if machine == "windows":
         pass
@@ -945,21 +1261,67 @@ if __name__ == '__main__':
             exit()
 
     dimmerAddresses = []
-    dimmerAddresses.append([0x00,0x00,0x00]) #append as many addresses as you have dimmers
+    dimmerAddresses.append(
+        [0x33, 0x46, 0x6F]
+    )  # append as many addresses as you have dimmers
     dimmers = []
     for address in dimmerAddresses:
         dimmers.append(dimmer(address))
-    print len(dimmers),"dimmers setup"
+    print len(dimmers), "dimmers setup"
     for iDimmer, dimmer in enumerate(dimmers):
         dimmer.GetState(insteonPlm)
         print "dimmer", iDimmer, "set to", dimmer.lastGetLevel
-    
+
     thermostatAddresses = []
-    thermostatAddresses.append([0x00,0x00,0x00]) #append as many addresses as you have thermostats
+    thermostatAddresses.append(
+        [0x32, 0xF9, 0x53]
+    )  # append as many addresses as you have thermostats
     thermostats = []
     for address in thermostatAddresses:
         thermostats.append(thermostat(address))
-    print len(thermostats),"thermostats setup"
+    print len(thermostats), "thermostats setup"
     for iThermostat, thermostat in enumerate(thermostats):
         thermostat.GetState(insteonPlm)
         print "thermostat", iThermostat, "temperature is", thermostat.actualTemp
+        thermostat.GetTime(insteonPlm)
+        print "\nthermostat current time:"
+        print "------------------------"
+        print " thermostat", iThermostat, "day is   ", thermostat.day
+        print " thermostat", iThermostat, "hour is  ", thermostat.hour
+        print " thermostat", iThermostat, "minute is", thermostat.minute
+        print " thermostat", iThermostat, "second is", thermostat.second
+        now = datetime.datetime.now()
+        day = now.isoweekday() % 7
+        hour = now.hour
+        minute = now.minute
+        second = now.second
+        print "\nsystem current time:"
+        print "------------------------"
+        print " system day is   ", day
+        print " system hour is  ", hour
+        print " system minute is", minute
+        print " system second is", second
+        print "\n*** updating thermostat time***"
+        thermostat.SetTime(insteonPlm, day, hour, minute, second)
+        thermostat.GetTime(insteonPlm)
+        print "\nthermostat updated time:"
+        print "------------------------"
+        print " thermostat", iThermostat, "day is   ", thermostat.day
+        print " thermostat", iThermostat, "hour is  ", thermostat.hour
+        print " thermostat", iThermostat, "minute is", thermostat.minute
+        print " thermostat", iThermostat, "second is", thermostat.second
+        # now = datetime.datetime.now()
+        # thermostat.verbose = True
+        # thermostat.SetMode(insteonPlm, 4)
+        # thermostat.GetState(insteonPlm)
+        # print 'thermostat.mode = ', thermostat.mode
+        # thermostat.SetMode(insteonPlm, 10)
+        # thermostat.GetState(insteonPlm)
+        # print 'thermostat.mode = ', thermostat.mode
+        # for i_loop in range(10):
+        #     print "\n*** try thermostat.GetState(insteonPlm)"
+        #     thermostat.GetState(insteonPlm)
+        #     print "\n*** try thermostat.GetTime(insteonPlm)"
+        #     thermostat.GetTime(insteonPlm)
+        #     print "\n*** try thermostat.SetMode(insteonPlm, 10)"
+        #     thermostat.SetMode(insteonPlm, 10)
